@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sell Covered Call 計算機</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #0b1220; color: #e7edf7; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .panel { background: #111a2b; border: 1px solid #24324d; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+    h1, h2 { margin: 0 0 16px; }
+    .controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+    .form-stack { display: flex; flex-direction: column; gap: 14px; }
+    .style-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 6px; }
+    .style-option { border: 1px solid #334763; background: #0d1525; border-radius: 12px; padding: 12px; }
+    .style-option input { min-width: auto; margin-right: 8px; }
+    .style-option strong { color: #e7edf7; }
+    .style-option p { margin: 8px 0 0; font-size: 13px; color: #93a2bd; line-height: 1.5; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #b9c5db; }
+    input { min-width: 180px; padding: 10px 12px; border-radius: 10px; border: 1px solid #334763; background: #0d1525; color: #fff; }
+    button { padding: 11px 16px; border: 0; border-radius: 10px; background: #1f6feb; color: #fff; cursor: pointer; }
+    button:hover { background: #2b7fff; }
+    .muted { color: #93a2bd; font-size: 14px; }
+    .error { color: #ff9b9b; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    th, td { border-bottom: 1px solid #24324d; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: #8fa6cc; font-weight: 600; }
+    th .sub-note { display: block; margin-top: 4px; font-size: 11px; line-height: 1.4; color: #93a2bd; font-weight: 400; }
+    .style-tag { font-weight: 700; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .summary-card { background: #0d1525; border: 1px solid #24324d; border-radius: 12px; padding: 12px; }
+    .summary-card .k { color: #8fa6cc; font-size: 12px; margin-bottom: 6px; }
+    .summary-card .v { font-size: 18px; font-weight: 700; }
+    .assessment-box { margin-top: 12px; padding: 12px 14px; border: 1px solid #24324d; border-radius: 12px; background: #0d1525; }
+    .assessment-grade { font-size: 15px; font-weight: 700; color: #e7edf7; }
+    .assessment-reason { margin-top: 6px; font-size: 13px; color: #93a2bd; }
+    .footer-version { margin-top: 24px; text-align: center; color: #93a2bd; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Sell Covered Call 計算機</h1>
+      <div class="form-stack">
+        <div class="controls">
+          <label>
+            股票代號
+            <input id="ticker" value="AAPL" placeholder="例如 AAPL">
+          </label>
+          <label>
+            持股成本
+            <input id="cost-basis" type="number" step="0.01" placeholder="留空則用現價">
+          </label>
+          <button id="run-btn">查詢</button>
+        </div>
+        <div class="style-picker">
+          <label class="style-option">
+            <span><input type="checkbox" name="style" value="保守型" checked> <strong>保守型</strong></span>
+            <p>到期權利金較少，但結算選擇日被 call 走機率低。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="style" value="Call Wall基準"> <strong>Call Wall基準</strong></span>
+            <p>依同到期 Call Wall 市場壓力位選履約價，作為結構參考基準。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="style" value="中庸型"> <strong>中庸型</strong></span>
+            <p>到期權利金較保守型多，但結算選擇日被 call 機率稍高。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="style" value="激進型"> <strong>激進型</strong></span>
+            <p>到期權利金較多，但結算選擇日被 call 走機率最高。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="style" value="全部"> <strong>全部</strong></span>
+            <p>顯示全部風格的候選價位與收益資料。</p>
+          </label>
+        </div>
+        <div class="summary-grid" id="summary"></div>
+      </div>
+      <div class="muted" id="status">預設以 100 股 1 單位 covered call 計算，使用 1~4 週 / 2 個月 / 3 個月 bucket。</div>
+      <div class="assessment-box" id="covered-call-assessment-box" hidden>
+        <div class="assessment-grade" id="covered-call-assessment-grade">Covered Call 評估：—</div>
+        <div class="assessment-reason" id="covered-call-assessment-reason">—</div>
+      </div>
+      <div class="error" id="error"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Covered Call 建議</h2>
+      <div class="muted">風格區間：保守型（Delta 0.10~0.20）｜Call Wall基準（市場壓力位）｜中庸型（Delta 0.25~0.35）｜激進型（Delta 0.40~0.55）</div>
+      <table>
+        <thead>
+          <tr>
+            <th>期間</th>
+            <th>風格</th>
+            <th>到期日</th>
+            <th>履約價</th>
+            <th>OI未平倉量</th>
+            <th>Delta</th>
+            <th>權利金</th>
+            <th>建議成交價</th>
+            <th>權利金收入</th>
+            <th>年化報酬</th>
+            <th>若被履約總獲利（含權利金）<span class="sub-note">履約價-成本價＋權利金＝總獲利</span></th>
+          </tr>
+        </thead>
+        <tbody id="result-body"></tbody>
+      </table>
+    </div>
+
+    <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1</div>
+  </div>
+
+  <script>
+    const summaryEl = document.getElementById("summary");
+    const resultBody = document.getElementById("result-body");
+    const errorEl = document.getElementById("error");
+    const statusEl = document.getElementById("status");
+    const assessmentBoxEl = document.getElementById("covered-call-assessment-box");
+    const assessmentGradeEl = document.getElementById("covered-call-assessment-grade");
+    const assessmentReasonEl = document.getElementById("covered-call-assessment-reason");
+    let lastReport = null;
+
+    function renderSummary(report) {
+      const cards = [
+        ["股票代號", report.ticker],
+        ["現價", `$${report.spot.toFixed(2)}`],
+        ["持股成本", `$${report.cost_basis.toFixed(2)}`],
+        ["更新時間", report.updated_at],
+      ];
+      summaryEl.innerHTML = cards.map(([k, v]) => `
+        <div class="summary-card">
+          <div class="k">${k}</div>
+          <div class="v">${v}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderRow(bucket, style) {
+      if (!style.available) {
+        return `
+          <tr>
+            <td>${bucket.label}</td>
+            <td class="style-tag">${style.style}</td>
+            <td>${bucket.target_expiry || "—"}</td>
+            <td colspan="7">${style.message}</td>
+          </tr>
+        `;
+      }
+      return `
+        <tr>
+          <td>${bucket.label}</td>
+          <td class="style-tag">${style.style}</td>
+          <td>${bucket.target_expiry} (DTE≈${bucket.dte})</td>
+          <td>$${style.strike.toFixed(2)}</td>
+          <td>${Number.isFinite(style.open_interest) ? style.open_interest.toLocaleString('en-US') : "—"}</td>
+          <td>${style.delta.toFixed(3)}</td>
+          <td>$${style.premium.toFixed(2)}</td>
+          <td>$${style.suggested_price.toFixed(2)}</td>
+          <td>$${style.premium_income.toFixed(2)}</td>
+          <td>${style.annualized_return.toFixed(2)}%</td>
+          <td>$${style.max_profit.toFixed(2)}</td>
+        </tr>
+      `;
+    }
+
+    function styleInputs() {
+      return Array.from(document.querySelectorAll('input[name="style"]'));
+    }
+
+    function selectedStyles() {
+      return styleInputs()
+        .filter(input => input.checked && input.value !== "全部")
+        .map(input => input.value);
+    }
+
+    function syncAllCheckbox(changedInput) {
+      const inputs = styleInputs();
+      const allInput = inputs.find(input => input.value === "全部");
+      const specificInputs = inputs.filter(input => input.value !== "全部");
+
+      if (!allInput) {
+        return;
+      }
+
+      if (changedInput && changedInput.value === "全部") {
+        specificInputs.forEach(input => {
+          input.checked = allInput.checked;
+        });
+        return;
+      }
+
+      const allSpecificChecked = specificInputs.every(input => input.checked);
+      allInput.checked = allSpecificChecked;
+    }
+
+    function selectedStyleLabel() {
+      const chosen = selectedStyles();
+      if (chosen.length === 0) {
+        return "未選擇";
+      }
+      return chosen.join("、");
+    }
+
+    function renderBuckets(report) {
+      const chosenStyles = selectedStyles();
+      if (chosenStyles.length === 0) {
+        resultBody.innerHTML = "";
+        return;
+      }
+      resultBody.innerHTML = report.buckets.map(bucket => {
+        return chosenStyles.map(chosenStyle => {
+          const style = bucket.styles.find(item => item.style === chosenStyle) || {
+            style: chosenStyle,
+            available: false,
+            message: "暫無合適合約",
+          };
+          return renderRow(bucket, style);
+        }).join("");
+      }).join("");
+    }
+
+    function renderAssessment(report) {
+      assessmentGradeEl.textContent = `Covered Call 評估：${report.covered_call_assessment || "—"}`;
+      assessmentReasonEl.textContent = report.covered_call_assessment_reason || "—";
+      assessmentBoxEl.hidden = false;
+    }
+
+    async function runQuery() {
+      const ticker = document.getElementById("ticker").value.trim();
+      const costBasis = document.getElementById("cost-basis").value.trim();
+      errorEl.textContent = "";
+      resultBody.innerHTML = "";
+      summaryEl.innerHTML = "";
+      assessmentBoxEl.hidden = true;
+      statusEl.textContent = "查詢中...";
+
+      const params = new URLSearchParams({ ticker });
+      if (costBasis) params.set("cost_basis", costBasis);
+
+      const response = await fetch(`/api/covered-call?${params.toString()}`);
+      const payload = await response.json();
+      if (!response.ok) {
+        errorEl.textContent = payload.error || "查詢失敗";
+        statusEl.textContent = "請修正輸入或稍後再試。";
+        return;
+      }
+
+      renderSummary(payload);
+      renderAssessment(payload);
+      lastReport = payload;
+      renderBuckets(payload);
+      statusEl.textContent = `查詢完成，目前顯示：${selectedStyleLabel()}`;
+    }
+
+    document.getElementById("run-btn").addEventListener("click", runQuery);
+    styleInputs().forEach(input => {
+      input.addEventListener("change", () => {
+        syncAllCheckbox(input);
+        if (lastReport) {
+          renderBuckets(lastReport);
+          statusEl.textContent = selectedStyles().length
+            ? `查詢完成，目前顯示：${selectedStyleLabel()}`
+            : "請至少選擇一種風格";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

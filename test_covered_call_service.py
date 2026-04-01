@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import unittest
+from datetime import date
+
+from covered_call import service
+
+
+class CoveredCallServiceTests(unittest.TestCase):
+    def test_pick_target_expiry_prefers_nearest_target_days(self) -> None:
+        expiry = service.pick_target_expiry(
+            ["2026-04-10", "2026-04-17", "2026-05-01"],
+            target_days=14,
+            base_date=date(2026, 4, 2),
+        )
+        self.assertEqual(expiry, "2026-04-17")
+
+    def test_annualized_return_uses_premium_over_spot(self) -> None:
+        result = service.calculate_annualized_return(
+            premium=2.0,
+            spot=100.0,
+            dte=30,
+        )
+        self.assertAlmostEqual(result, 24.33, places=2)
+
+    def test_pick_candidate_by_delta_band_prefers_high_oi_and_closest_delta(self) -> None:
+        options = [
+            {"strike": 110, "delta": 0.17, "openInterest": 500, "bid": 1.2, "ask": 1.4, "lastPrice": 1.3},
+            {"strike": 112, "delta": 0.16, "openInterest": 1200, "bid": 1.0, "ask": 1.2, "lastPrice": 1.1},
+        ]
+        candidate = service.pick_candidate_by_style(options, "保守型")
+        self.assertEqual(candidate["strike"], 112)
+
+    def test_calculate_contract_metrics_returns_expected_fields(self) -> None:
+        metrics = service.calculate_contract_metrics(
+            spot=100.0,
+            cost_basis=90.0,
+            dte=30,
+            strike=105.0,
+            premium=2.0,
+        )
+        self.assertEqual(metrics["premium_income"], 200.0)
+        self.assertAlmostEqual(metrics["max_profit"], 1700.0, places=2)
+
+    def test_classify_covered_call_assessment_returns_green_for_rich_premium(self) -> None:
+        bucket = {
+            "target_expiry": "2026-05-01",
+            "dte": 29,
+            "iv_rv_spread_pct": 8.4,
+            "iv_rv_ratio": 1.47,
+            "call_yield_pct": 1.38,
+        }
+        result = service.classify_covered_call_assessment(bucket)
+        self.assertEqual(result["grade"], "🟢 適合")
+        self.assertIn("權利金偏貴", result["reason"])
+
+    def test_classify_covered_call_assessment_returns_red_for_thin_premium(self) -> None:
+        bucket = {
+            "target_expiry": "2026-05-01",
+            "dte": 29,
+            "iv_rv_spread_pct": 1.2,
+            "iv_rv_ratio": 1.05,
+            "call_yield_pct": 0.22,
+        }
+        result = service.classify_covered_call_assessment(bucket)
+        self.assertEqual(result["grade"], "🔴 不適合")
+        self.assertIn("權利金不夠厚", result["reason"])
+
+    def test_build_call_wall_style_summary_uses_call_wall_strike(self) -> None:
+        summary = service.build_call_wall_style_summary(
+            call_wall=270.0,
+            spot=250.0,
+            cost_basis=240.0,
+            dte=30,
+            premium=2.0,
+            delta=0.3,
+            open_interest=1234,
+        )
+        self.assertEqual(summary["style"], "Call Wall基準")
+        self.assertTrue(summary["available"])
+        self.assertEqual(summary["strike"], 270.0)
+        self.assertEqual(summary["premium_income"], 200.0)
+        self.assertEqual(summary["open_interest"], 1234)
+
+
+if __name__ == "__main__":
+    unittest.main()
