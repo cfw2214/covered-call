@@ -34,7 +34,28 @@
     .assessment-box { margin-top: 12px; padding: 12px 14px; border: 1px solid #24324d; border-radius: 12px; background: #0d1525; }
     .assessment-grade { font-size: 15px; font-weight: 700; color: #e7edf7; }
     .assessment-reason { margin-top: 6px; font-size: 13px; color: #93a2bd; }
+    .result-table-wrap { display: block; }
+    .card-grid { display: none; gap: 14px; margin-top: 16px; }
+    .result-card { background: #0d1525; border: 1px solid #24324d; border-radius: 12px; padding: 14px; }
+    .result-card-header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; }
+    .result-card-title { font-size: 16px; font-weight: 700; color: #e7edf7; }
+    .result-card-subtitle { font-size: 13px; color: #93a2bd; }
+    .card-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #1b2740; }
+    .card-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .card-key { color: #8fa6cc; font-size: 13px; flex: 0 0 42%; }
+    .card-value { color: #e7edf7; font-size: 14px; text-align: right; flex: 1; word-break: break-word; }
+    .card-value.message { text-align: left; color: #93a2bd; }
     .footer-version { margin-top: 24px; text-align: center; color: #93a2bd; font-size: 13px; }
+    @media (max-width: 767px) {
+      .wrap { padding: 16px; }
+      .panel { padding: 16px; }
+      .controls { align-items: stretch; }
+      .controls label, .controls button { width: 100%; }
+      .controls input { min-width: 0; width: 100%; box-sizing: border-box; }
+      .style-picker { grid-template-columns: 1fr; }
+      .result-table-wrap { display: none; }
+      .card-grid { display: grid; }
+    }
   </style>
 </head>
 <body>
@@ -88,24 +109,27 @@
     <div class="panel">
       <h2>Covered Call 建議</h2>
       <div class="muted">風格區間：保守型（Delta 0.10~0.20）｜Call Wall（市場壓力位）｜中庸型（Delta 0.25~0.35）｜激進型（Delta 0.40~0.55）</div>
-      <table>
-        <thead>
-          <tr>
-            <th>期間</th>
-            <th>風格</th>
-            <th>到期日</th>
-            <th>履約價</th>
-            <th>OI未平倉量</th>
-            <th>Delta</th>
-            <th>權利金</th>
-            <th>建議成交價</th>
-            <th>權利金收入</th>
-            <th>年化報酬</th>
-            <th>若被履約總獲利（含權利金）<span class="sub-note">履約價-成本價＋權利金＝總獲利</span></th>
-          </tr>
-        </thead>
-        <tbody id="result-body"></tbody>
-      </table>
+      <div class="result-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>期間</th>
+              <th>風格</th>
+              <th>到期日</th>
+              <th>履約價</th>
+              <th>OI未平倉量</th>
+              <th>Delta</th>
+              <th>權利金</th>
+              <th>建議成交價</th>
+              <th>權利金收入</th>
+              <th>年化報酬</th>
+              <th>若被履約總獲利（含權利金）<span class="sub-note">履約價-成本價＋權利金＝總獲利</span></th>
+            </tr>
+          </thead>
+          <tbody id="result-body"></tbody>
+        </table>
+      </div>
+      <div class="card-grid" id="result-cards"></div>
     </div>
 
     <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1.1</div>
@@ -114,6 +138,7 @@
   <script>
     const summaryEl = document.getElementById("summary");
     const resultBody = document.getElementById("result-body");
+    const resultCards = document.getElementById("result-cards");
     const errorEl = document.getElementById("error");
     const statusEl = document.getElementById("status");
     const assessmentBoxEl = document.getElementById("covered-call-assessment-box");
@@ -164,6 +189,40 @@
       `;
     }
 
+    function renderCard(bucket, style) {
+      if (!style.available) {
+        return `
+          <article class="result-card">
+            <div class="result-card-header">
+              <div class="result-card-title">${bucket.label}｜${style.style}</div>
+              <div class="result-card-subtitle">${bucket.target_expiry || "—"}</div>
+            </div>
+            <div class="card-row">
+              <div class="card-key">狀態</div>
+              <div class="card-value message">${style.message}</div>
+            </div>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="result-card">
+          <div class="result-card-header">
+            <div class="result-card-title">${bucket.label}｜${style.style}</div>
+            <div class="result-card-subtitle">${bucket.target_expiry} (DTE≈${bucket.dte})</div>
+          </div>
+          <div class="card-row"><div class="card-key">履約價</div><div class="card-value">$${style.strike.toFixed(2)}</div></div>
+          <div class="card-row"><div class="card-key">OI未平倉量</div><div class="card-value">${Number.isFinite(style.open_interest) ? style.open_interest.toLocaleString('en-US') : "—"}</div></div>
+          <div class="card-row"><div class="card-key">Delta</div><div class="card-value">${style.delta.toFixed(3)}</div></div>
+          <div class="card-row"><div class="card-key">權利金</div><div class="card-value">$${style.premium.toFixed(2)}</div></div>
+          <div class="card-row"><div class="card-key">建議成交價</div><div class="card-value">$${style.suggested_price.toFixed(2)}</div></div>
+          <div class="card-row"><div class="card-key">權利金收入</div><div class="card-value">$${style.premium_income.toFixed(2)}</div></div>
+          <div class="card-row"><div class="card-key">年化報酬</div><div class="card-value">${style.annualized_return.toFixed(2)}%</div></div>
+          <div class="card-row"><div class="card-key">若被履約總獲利（含權利金）</div><div class="card-value">$${style.max_profit.toFixed(2)}</div></div>
+        </article>
+      `;
+    }
+
     function styleInputs() {
       return Array.from(document.querySelectorAll('input[name="style"]'));
     }
@@ -206,6 +265,7 @@
       const chosenStyles = selectedStyles();
       if (chosenStyles.length === 0) {
         resultBody.innerHTML = "";
+        resultCards.innerHTML = "";
         return;
       }
       resultBody.innerHTML = report.buckets.map(bucket => {
@@ -216,6 +276,16 @@
             message: "暫無合適合約",
           };
           return renderRow(bucket, style);
+        }).join("");
+      }).join("");
+      resultCards.innerHTML = report.buckets.map(bucket => {
+        return chosenStyles.map(chosenStyle => {
+          const style = bucket.styles.find(item => item.style === chosenStyle) || {
+            style: chosenStyle,
+            available: false,
+            message: "暫無合適合約",
+          };
+          return renderCard(bucket, style);
         }).join("");
       }).join("");
     }
@@ -231,6 +301,7 @@
       const costBasis = document.getElementById("cost-basis").value.trim();
       errorEl.textContent = "";
       resultBody.innerHTML = "";
+      resultCards.innerHTML = "";
       summaryEl.innerHTML = "";
       assessmentBoxEl.hidden = true;
       statusEl.textContent = "查詢中...";

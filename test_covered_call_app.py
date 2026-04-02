@@ -52,6 +52,20 @@ class CoveredCallAppTests(unittest.TestCase):
         self.assertNotIn("標的摘要", body)
         self.assertLess(body.find('id="summary"'), body.find("<h2>Covered Call 建議</h2>"))
 
+    def test_index_page_contains_mobile_result_hooks(self) -> None:
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn('id="result-cards"', body)
+        self.assertIn("@media (max-width: 767px)", body)
+
+    def test_index_page_contains_mobile_card_labels(self) -> None:
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn("card-grid", body)
+        self.assertIn("card-row", body)
+
     def test_resolve_output_html_path_uses_custom_output_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = covered_call_app.resolve_output_html_path(tmpdir)
