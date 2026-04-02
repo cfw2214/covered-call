@@ -12,6 +12,7 @@
     .controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
     .form-stack { display: flex; flex-direction: column; gap: 14px; }
     .style-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 6px; }
+    .filter-group-title { margin-top: 4px; font-size: 13px; color: #8fa6cc; font-weight: 600; }
     .style-option { border: 1px solid #334763; background: #0d1525; border-radius: 12px; padding: 12px; }
     .style-option input { min-width: auto; margin-right: 8px; }
     .style-option strong { color: #e7edf7; }
@@ -74,6 +75,7 @@
           </label>
           <button id="run-btn">查詢</button>
         </div>
+        <div class="filter-group-title">風格</div>
         <div class="style-picker">
           <label class="style-option">
             <span><input type="checkbox" name="style" value="保守型" checked> <strong>保守型</strong></span>
@@ -91,9 +93,36 @@
             <span><input type="checkbox" name="style" value="激進型"> <strong>激進型</strong></span>
             <p>到期權利金較多，但結算選擇日被 call 走機率最高。</p>
           </label>
+        </div>
+        <div class="filter-group-title">時間範圍</div>
+        <div class="style-picker" id="bucket-filters">
           <label class="style-option">
-            <span><input type="checkbox" name="style" value="全部"> <strong>全部</strong></span>
-            <p>顯示全部風格的候選價位與收益資料。</p>
+            <span><input type="checkbox" name="bucket" value="本週" checked> <strong>本週</strong></span>
+            <p>顯示本週有效結算日的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="下週" checked> <strong>下週</strong></span>
+            <p>顯示下一個週結算 bucket 的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="2週後" checked> <strong>2週後</strong></span>
+            <p>顯示距今第 2 個週結算 bucket 的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="3週後" checked> <strong>3週後</strong></span>
+            <p>顯示距今第 3 個週結算 bucket 的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="4週後" checked> <strong>4週後</strong></span>
+            <p>顯示距今第 4 個週結算 bucket 的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="2個月"> <strong>2個月</strong></span>
+            <p>顯示標準 monthly 2 個月 bucket 的 covered call 建議。</p>
+          </label>
+          <label class="style-option">
+            <span><input type="checkbox" name="bucket" value="3個月"> <strong>3個月</strong></span>
+            <p>顯示標準 monthly 3 個月 bucket 的 covered call 建議。</p>
           </label>
         </div>
         <div class="summary-grid" id="summary"></div>
@@ -227,48 +256,36 @@
       return Array.from(document.querySelectorAll('input[name="style"]'));
     }
 
+    function bucketInputs() {
+      return Array.from(document.querySelectorAll('input[name="bucket"]'));
+    }
+
     function selectedStyles() {
-      return styleInputs()
-        .filter(input => input.checked && input.value !== "全部")
-        .map(input => input.value);
+      return styleInputs().filter(input => input.checked).map(input => input.value);
     }
 
-    function syncAllCheckbox(changedInput) {
-      const inputs = styleInputs();
-      const allInput = inputs.find(input => input.value === "全部");
-      const specificInputs = inputs.filter(input => input.value !== "全部");
-
-      if (!allInput) {
-        return;
-      }
-
-      if (changedInput && changedInput.value === "全部") {
-        specificInputs.forEach(input => {
-          input.checked = allInput.checked;
-        });
-        return;
-      }
-
-      const allSpecificChecked = specificInputs.every(input => input.checked);
-      allInput.checked = allSpecificChecked;
+    function selectedBuckets() {
+      return bucketInputs().filter(input => input.checked).map(input => input.value);
     }
 
-    function selectedStyleLabel() {
-      const chosen = selectedStyles();
-      if (chosen.length === 0) {
-        return "未選擇";
-      }
-      return chosen.join("、");
+    function selectedFilterLabel() {
+      const chosenStyles = selectedStyles();
+      const chosenBuckets = selectedBuckets();
+      const styleText = chosenStyles.length ? chosenStyles.join("、") : "未選擇風格";
+      const bucketText = chosenBuckets.length ? chosenBuckets.join("、") : "未選擇時間範圍";
+      return `${styleText}｜${bucketText}`;
     }
 
     function renderBuckets(report) {
       const chosenStyles = selectedStyles();
-      if (chosenStyles.length === 0) {
+      const chosenBuckets = selectedBuckets();
+      if (chosenStyles.length === 0 || chosenBuckets.length === 0) {
         resultBody.innerHTML = "";
         resultCards.innerHTML = "";
         return;
       }
-      resultBody.innerHTML = report.buckets.map(bucket => {
+      const visibleBuckets = report.buckets.filter(bucket => chosenBuckets.includes(bucket.label));
+      resultBody.innerHTML = visibleBuckets.map(bucket => {
         return chosenStyles.map(chosenStyle => {
           const style = bucket.styles.find(item => item.style === chosenStyle) || {
             style: chosenStyle,
@@ -278,7 +295,7 @@
           return renderRow(bucket, style);
         }).join("");
       }).join("");
-      resultCards.innerHTML = report.buckets.map(bucket => {
+      resultCards.innerHTML = visibleBuckets.map(bucket => {
         return chosenStyles.map(chosenStyle => {
           const style = bucket.styles.find(item => item.style === chosenStyle) || {
             style: chosenStyle,
@@ -321,18 +338,27 @@
       renderAssessment(payload);
       lastReport = payload;
       renderBuckets(payload);
-      statusEl.textContent = `查詢完成，目前顯示：${selectedStyleLabel()}`;
+      statusEl.textContent = `查詢完成，目前顯示：${selectedFilterLabel()}`;
     }
 
     document.getElementById("run-btn").addEventListener("click", runQuery);
     styleInputs().forEach(input => {
       input.addEventListener("change", () => {
-        syncAllCheckbox(input);
         if (lastReport) {
           renderBuckets(lastReport);
-          statusEl.textContent = selectedStyles().length
-            ? `查詢完成，目前顯示：${selectedStyleLabel()}`
-            : "請至少選擇一種風格";
+          statusEl.textContent = selectedStyles().length && selectedBuckets().length
+            ? `查詢完成，目前顯示：${selectedFilterLabel()}`
+            : "請至少勾選一種風格與一個時間範圍";
+        }
+      });
+    });
+    bucketInputs().forEach(input => {
+      input.addEventListener("change", () => {
+        if (lastReport) {
+          renderBuckets(lastReport);
+          statusEl.textContent = selectedStyles().length && selectedBuckets().length
+            ? `查詢完成，目前顯示：${selectedFilterLabel()}`
+            : "請至少勾選一種風格與一個時間範圍";
         }
       });
     });
