@@ -4,19 +4,23 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
 import yfinance as yf
 
 
-TARGET_BUCKETS = [
-    ("1週", 7),
-    ("2週", 14),
-    ("3週", 21),
-    ("4週", 28),
-    ("2個月", 60),
-    ("3個月", 90),
+WEEK_BUCKETS = [
+    ("本週", "current", 0),
+    ("下週", "future", 1),
+    ("2週後", "future", 2),
+    ("3週後", "future", 3),
+    ("4週後", "future", 4),
+]
+
+MONTH_BUCKETS = [
+    ("2個月", 2),
+    ("3個月", 3),
 ]
 
 STYLE_RULES = {
@@ -39,6 +43,137 @@ def pick_target_expiry(expiries: Iterable[str], target_days: int, base_date: dat
         return None
     valid.sort(key=lambda item: (item[0], item[1]))
     return valid[0][2]
+
+
+def _parse_future_expiries(
+    expiries: Iterable[str],
+    base_date: date,
+    include_today: bool = False,
+) -> list[tuple[date, str]]:
+    parsed = []
+    for expiry in expiries:
+        expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
+        if expiry_date > base_date or (include_today and expiry_date == base_date):
+            parsed.append((expiry_date, expiry))
+    parsed.sort(key=lambda item: item[0])
+    return parsed
+
+
+def _expiry_week_key(expiry_date: date) -> tuple[int, int]:
+    iso_year, iso_week, _ = expiry_date.isocalendar()
+    return iso_year, iso_week
+
+
+def _third_friday(year: int, month: int) -> date:
+    first_day = date(year, month, 1)
+    days_to_friday = (4 - first_day.weekday()) % 7
+    first_friday = first_day + timedelta(days=days_to_friday)
+    return first_friday + timedelta(days=14)
+
+
+def _add_months(anchor: date, months: int) -> tuple[int, int]:
+    month_index = (anchor.year * 12 + anchor.month - 1) + months
+    year = month_index // 12
+    month = month_index % 12 + 1
+    return year, month
+
+
+def _build_weekly_expiry_candidates(expiries: Iterable[str], base_date: date) -> list[str]:
+    parsed = _parse_future_expiries(expiries, base_date)
+    friday_weeks = {
+        _expiry_week_key(expiry_date)
+        for expiry_date, _ in parsed
+        if expiry_date.weekday() == 4
+    }
+    candidates = []
+    for expiry_date, expiry in parsed:
+        weekday = expiry_date.weekday()
+        if weekday == 4:
+            candidates.append(expiry)
+        elif weekday == 3 and _expiry_week_key(expiry_date) not in friday_weeks:
+            candidates.append(expiry)
+    return candidates
+
+
+def pick_weekly_bucket_expiry(expiries: Iterable[str], week_index: int, base_date: date) -> Optional[str]:
+    candidates = _build_weekly_expiry_candidates(expiries, base_date)
+    if week_index <= 0 or len(candidates) < week_index:
+        return None
+    return candidates[week_index - 1]
+
+
+def pick_current_weekly_expiry(expiries: Iterable[str], base_date: date) -> Optional[str]:
+    candidates = []
+    parsed = _parse_future_expiries(expiries, base_date, include_today=True)
+    friday_weeks = {
+        _expiry_week_key(expiry_date)
+        for expiry_date, _ in parsed
+        if expiry_date.weekday() == 4
+    }
+    for expiry_date, expiry in parsed:
+        weekday = expiry_date.weekday()
+        if weekday == 4:
+            candidates.append(expiry)
+        elif weekday == 3 and _expiry_week_key(expiry_date) not in friday_weeks:
+            candidates.append(expiry)
+    current_week_key = _expiry_week_key(base_date)
+    for expiry in candidates:
+        expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
+        if _expiry_week_key(expiry_date) == current_week_key:
+            return expiry
+    return None
+
+
+def pick_future_weekly_expiry(expiries: Iterable[str], future_index: int, base_date: date) -> Optional[str]:
+    candidates = _build_weekly_expiry_candidates(expiries, base_date)
+    current_week_key = _expiry_week_key(base_date)
+    future_candidates = []
+    for expiry in candidates:
+        expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
+        if _expiry_week_key(expiry_date) != current_week_key:
+            future_candidates.append(expiry)
+    if future_index <= 0 or len(future_candidates) < future_index:
+        return None
+    return future_candidates[future_index - 1]
+
+
+def _build_monthly_expiry_candidates(expiries: Iterable[str], base_date: date) -> list[tuple[date, str]]:
+    parsed = _parse_future_expiries(expiries, base_date)
+    expiry_dates = {expiry_date for expiry_date, _ in parsed}
+    candidates = []
+    for expiry_date, expiry in parsed:
+        third_friday = _third_friday(expiry_date.year, expiry_date.month)
+        if expiry_date == third_friday:
+            candidates.append((expiry_date, expiry))
+            continue
+        holiday_adjusted = third_friday - timedelta(days=1)
+        if (
+            expiry_date == holiday_adjusted
+            and holiday_adjusted.weekday() == 3
+            and third_friday not in expiry_dates
+        ):
+            candidates.append((expiry_date, expiry))
+    return candidates
+
+
+def pick_monthly_bucket_expiry(expiries: Iterable[str], month_offset: int, base_date: date) -> Optional[str]:
+    monthly_candidates = _build_monthly_expiry_candidates(expiries, base_date)
+    if not monthly_candidates:
+        return None
+
+    target_year, target_month = _add_months(base_date, month_offset)
+    for expiry_date, expiry in monthly_candidates:
+        if expiry_date.year == target_year and expiry_date.month == target_month:
+            return expiry
+
+    fallback = [
+        (abs((expiry_date.year - target_year) * 12 + (expiry_date.month - target_month)), expiry_date, expiry)
+        for expiry_date, expiry in monthly_candidates
+    ]
+    if not fallback:
+        return None
+    fallback.sort(key=lambda item: (item[0], item[1]))
+    return fallback[0][2]
 
 
 def calculate_annualized_return(premium: float, spot: float, dte: int) -> float:
@@ -146,7 +281,7 @@ def build_call_wall_style_summary(
         premium=float(premium),
     )
     return {
-        "style": "Call Wall基準",
+        "style": "Call Wall",
         "available": True,
         "strike": round(float(call_wall), 2),
         "delta": round(float(delta), 3),
@@ -162,7 +297,7 @@ def build_call_wall_style_summary(
 
 def _build_unavailable_call_wall_summary(message: str) -> dict:
     return {
-        "style": "Call Wall基準",
+        "style": "Call Wall",
         "available": False,
         "message": message,
     }
@@ -348,8 +483,16 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
     normalized_cost_basis = float(cost_basis) if cost_basis and cost_basis > 0 else spot
 
     buckets = []
-    for label, target_days in TARGET_BUCKETS:
-        expiry = pick_target_expiry(expiries, target_days=target_days, base_date=base_date)
+    bucket_specs = [(label, bucket_type, offset) for label, bucket_type, offset in WEEK_BUCKETS] + [
+        (label, "month", offset) for label, offset in MONTH_BUCKETS
+    ]
+    for label, bucket_type, offset in bucket_specs:
+        if bucket_type == "current":
+            expiry = pick_current_weekly_expiry(expiries, base_date=base_date)
+        elif bucket_type == "future":
+            expiry = pick_future_weekly_expiry(expiries, future_index=offset, base_date=base_date)
+        else:
+            expiry = pick_monthly_bucket_expiry(expiries, month_offset=offset, base_date=base_date)
         if not expiry:
             buckets.append(
                 {
@@ -363,10 +506,11 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
             continue
 
         expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
-        dte = max((expiry_date - base_date).days, 1)
+        display_dte = max((expiry_date - base_date).days, 0)
+        calc_dte = max((expiry_date - base_date).days, 1)
         option_chain = tk.option_chain(expiry)
-        call_rows = _build_option_rows(option_chain.calls, spot=spot, dte=dte)
-        put_rows = _build_option_rows(option_chain.puts, spot=spot, dte=dte)
+        call_rows = _build_option_rows(option_chain.calls, spot=spot, dte=calc_dte)
+        put_rows = _build_option_rows(option_chain.puts, spot=spot, dte=calc_dte)
 
         atm_iv = _pick_atm_call_iv(call_rows, spot=spot)
         iv_rv_spread = round(((atm_iv - realized_vol) * 100), 2) if atm_iv is not None and realized_vol is not None else None
@@ -376,9 +520,9 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
         styles = []
         for style in STYLE_RULES:
             candidate = pick_candidate_by_style(call_rows, style)
-            styles.append(_build_candidate_summary(style, candidate, spot=spot, cost_basis=normalized_cost_basis, dte=dte))
+            styles.append(_build_candidate_summary(style, candidate, spot=spot, cost_basis=normalized_cost_basis, dte=calc_dte))
 
-        call_wall_candidate = pick_otm_call_wall_candidate(call_rows, spot=spot, dte=dte)
+        call_wall_candidate = pick_otm_call_wall_candidate(call_rows, spot=spot, dte=calc_dte)
         if call_wall_candidate:
             wall_spread_pct = None
             ask = float(call_wall_candidate.get("ask") or 0.0)
@@ -393,7 +537,7 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
                     call_wall=float(call_wall_candidate["strike"]),
                     spot=spot,
                     cost_basis=normalized_cost_basis,
-                    dte=dte,
+                    dte=calc_dte,
                     premium=option_mid(call_wall_candidate),
                     delta=float(call_wall_candidate.get("delta") or 0.0),
                     open_interest=float(call_wall_candidate.get("openInterest") or 0.0),
@@ -411,7 +555,7 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
             {
                 "label": label,
                 "target_expiry": expiry,
-                "dte": dte,
+                "dte": display_dte,
                 "iv_rv_spread_pct": iv_rv_spread,
                 "iv_rv_ratio": iv_rv_ratio,
                 "call_yield_pct": call_yield,

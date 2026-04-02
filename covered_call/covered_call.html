@@ -59,7 +59,7 @@
             <p>到期權利金較少，但結算選擇日被 call 走機率低。</p>
           </label>
           <label class="style-option">
-            <span><input type="checkbox" name="style" value="Call Wall基準"> <strong>Call Wall基準</strong></span>
+            <span><input type="checkbox" name="style" value="Call Wall"> <strong>Call Wall</strong></span>
             <p>依同到期 Call Wall 市場壓力位選履約價，作為結構參考基準。</p>
           </label>
           <label class="style-option">
@@ -77,7 +77,7 @@
         </div>
         <div class="summary-grid" id="summary"></div>
       </div>
-      <div class="muted" id="status">預設以 100 股 1 單位 covered call 計算，使用 1~4 週 / 2 個月 / 3 個月 bucket。</div>
+      <div class="muted" id="status">預設以 100 股 1 單位 covered call 計算，使用 本週 / 下週 / 2週後 / 3週後 / 4週後 / 2個月 / 3個月 bucket。</div>
       <div class="assessment-box" id="covered-call-assessment-box" hidden>
         <div class="assessment-grade" id="covered-call-assessment-grade">Covered Call 評估：—</div>
         <div class="assessment-reason" id="covered-call-assessment-reason">—</div>
@@ -87,7 +87,7 @@
 
     <div class="panel">
       <h2>Covered Call 建議</h2>
-      <div class="muted">風格區間：保守型（Delta 0.10~0.20）｜Call Wall基準（市場壓力位）｜中庸型（Delta 0.25~0.35）｜激進型（Delta 0.40~0.55）</div>
+      <div class="muted">風格區間：保守型（Delta 0.10~0.20）｜Call Wall（市場壓力位）｜中庸型（Delta 0.25~0.35）｜激進型（Delta 0.40~0.55）</div>
       <table>
         <thead>
           <tr>
@@ -108,7 +108,7 @@
       </table>
     </div>
 
-    <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1</div>
+    <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1.1</div>
   </div>
 
   <script>

@@ -1,12 +1,12 @@
 # covered-call
 
-本專案是本地互動式的 Sell Covered Call 計算機。
+本專案是互動式的 Sell Covered Call 計算機，可本地執行，也可部署到 Render。
 
 功能：
 - 輸入股票代號，自動用 `yfinance` 抓現價與期權鏈
 - 依 `Delta` 分出 `保守型 / 中庸型 / 激進型`
-- 另外提供 `Call Wall基準`
-- 顯示 `1週 / 2週 / 3週 / 4週 / 2個月 / 3個月` 的 covered call 候選
+- 另外提供 `Call Wall`
+- 顯示 `本週 / 下週 / 2週後 / 3週後 / 4週後 / 2個月 / 3個月` 的 covered call 候選
 - 顯示權利金、建議成交價、年化報酬、OI 未平倉量、若被履約總獲利
 
 ## 安裝
@@ -17,7 +17,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 啟動
+## 本地啟動
 
 在專案根目錄執行：
 
@@ -30,6 +30,21 @@ python3 covered_call/app.py
 ```text
 http://127.0.0.1:5000
 ```
+
+## Render 部署
+
+本 repo 已包含：
+- `requirements.txt`
+- `render.yaml`
+
+若要部署到 Render，直接使用這個 GitHub repo：
+
+- Repository: `cfw2214/covered-call`
+- Environment: `Python`
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `gunicorn "covered_call.app:app"`
+
+如果你在 Render 介面中選用 Blueprint，也可直接讀取 repo 內的 `render.yaml`。
 
 ## 輸出 HTML 路徑
 
@@ -62,12 +77,6 @@ python3 covered_call/app.py
 python3 -m unittest test_covered_call_service.py test_covered_call_app.py -v
 ```
 
-## 下一步
+## 線上使用
 
-目前只是本地 standalone repo。
-
-若要建立公開 GitHub repo：
-1. 先完成 `gh auth login -h github.com`
-2. 再建立公開 repo
-3. push 上去
-4. 需要手機直接使用時，再補部署設定
+部署完成後，Render 會提供公開網址，手機可直接打開使用。

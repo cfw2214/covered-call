@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: covered-call
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "covered_call.app:app"

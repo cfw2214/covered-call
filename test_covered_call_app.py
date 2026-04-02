@@ -36,17 +36,18 @@ class CoveredCallAppTests(unittest.TestCase):
         self.assertIn("OI未平倉量", body)
         self.assertIn("全部", body)
         self.assertIn("保守型", body)
-        self.assertIn("Call Wall基準", body)
+        self.assertIn("Call Wall", body)
         self.assertIn("中庸型", body)
         self.assertIn("激進型", body)
-        self.assertIn("Sell Covered Call 計算機 by我是黑叔 版本v1", body)
+        self.assertIn("Sell Covered Call 計算機 by我是黑叔 版本v1.1", body)
         self.assertIn('type="checkbox"', body)
         self.assertIn('value="保守型"', body)
-        self.assertIn('value="Call Wall基準"', body)
+        self.assertIn('value="Call Wall"', body)
         self.assertIn('value="中庸型"', body)
         self.assertIn('value="激進型"', body)
         self.assertIn('value="全部"', body)
         self.assertIn('value="保守型" checked', body)
+        self.assertIn("本週 / 下週 / 2週後 / 3週後 / 4週後 / 2個月 / 3個月", body)
         self.assertNotIn('type="radio"', body)
         self.assertNotIn("標的摘要", body)
         self.assertLess(body.find('id="summary"'), body.find("<h2>Covered Call 建議</h2>"))
@@ -64,7 +65,7 @@ class CoveredCallAppTests(unittest.TestCase):
             payload = response.get_json()
             first_bucket = payload["buckets"][0]
             style_names = [item["style"] for item in first_bucket["styles"]]
-            self.assertIn("Call Wall基準", style_names)
+            self.assertIn("Call Wall", style_names)
 
 
 if __name__ == "__main__":
