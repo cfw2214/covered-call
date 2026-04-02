@@ -1,6 +1,6 @@
 # covered-call
 
-本專案是互動式的 Sell Covered Call 計算機，可本地執行，也可部署到 Render。
+本專案是互動式的 Sell Covered Call 計算機，可本地執行，也可部署到 Render 與 Cloud Run。
 
 功能：
 - 輸入股票代號，自動用 `yfinance` 抓現價與期權鏈
@@ -45,6 +45,35 @@ http://127.0.0.1:5000
 - Start Command: `gunicorn "covered_call.app:app"`
 
 如果你在 Render 介面中選用 Blueprint，也可直接讀取 repo 內的 `render.yaml`。
+
+## Cloud Run 部署
+
+本 repo 已包含：
+- `Dockerfile`
+- `.dockerignore`
+
+若你不想在本機安裝 `gcloud`，最省事的做法是用 **Google Cloud Console 的 Cloud Shell**。
+
+在 Cloud Shell 內：
+
+```bash
+git clone https://github.com/cfw2214/covered-call.git
+cd covered-call
+gcloud run deploy covered-call \
+  --source . \
+  --region asia-east1 \
+  --allow-unauthenticated
+```
+
+如果你已經先在 Google Cloud Console 選好專案，這條指令就會：
+- 使用 repo 內的 `Dockerfile`
+- 建立 Cloud Run 服務
+- 產生公開網址
+
+若系統提示要啟用 API，照畫面同意即可：
+- Cloud Run Admin API
+- Cloud Build API
+- Artifact Registry API
 
 ## 輸出 HTML 路徑
 
