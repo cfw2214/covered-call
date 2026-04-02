@@ -45,7 +45,7 @@ class CoveredCallAppTests(unittest.TestCase):
         self.assertIn("4週後", body)
         self.assertIn("2個月", body)
         self.assertIn("3個月", body)
-        self.assertIn("Sell Covered Call 計算機 by我是黑叔 版本v1.1", body)
+        self.assertIn("Sell Covered Call 計算機 by我是黑叔 版本v1.2", body)
         self.assertIn('type="checkbox"', body)
         self.assertIn('value="保守型"', body)
         self.assertIn('value="Call Wall"', body)
@@ -61,7 +61,7 @@ class CoveredCallAppTests(unittest.TestCase):
         self.assertIn('value="4週後" checked', body)
         self.assertNotIn('value="2個月" checked', body)
         self.assertNotIn('value="3個月" checked', body)
-        self.assertIn("本週 / 下週 / 2週後 / 3週後 / 4週後 / 2個月 / 3個月", body)
+        self.assertIn("以 100 股為 1 單位 covered call 計算。", body)
         self.assertNotIn('type="radio"', body)
         self.assertNotIn("標的摘要", body)
         self.assertLess(body.find('id="summary"'), body.find("<h2>Covered Call 建議</h2>"))
@@ -79,6 +79,28 @@ class CoveredCallAppTests(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn("card-grid", body)
         self.assertIn("card-row", body)
+
+    def test_index_page_uses_compact_bucket_filter_group(self) -> None:
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn('id="bucket-filters"', body)
+        self.assertIn("bucket-filter-list", body)
+        self.assertIn(".bucket-filter-list { display: flex;", body)
+        self.assertNotIn(".bucket-filter-list { display: grid;", body)
+        self.assertNotIn("顯示本週有效結算日的 covered call 建議。", body)
+        self.assertNotIn("顯示標準 monthly 2 個月 bucket 的 covered call 建議。", body)
+
+    def test_index_page_uses_single_summary_strip(self) -> None:
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn('id="summary"', body)
+        self.assertIn("summary-strip", body)
+        self.assertIn("summary-item", body)
+        self.assertIn(".summary-strip { display: flex; flex-wrap: wrap; gap: 8px;", body)
+        self.assertNotIn("summary-card", body)
+        self.assertNotIn("更新時間", body)
 
     def test_resolve_output_html_path_uses_custom_output_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

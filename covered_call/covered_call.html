@@ -17,6 +17,9 @@
     .style-option input { min-width: auto; margin-right: 8px; }
     .style-option strong { color: #e7edf7; }
     .style-option p { margin: 8px 0 0; font-size: 13px; color: #93a2bd; line-height: 1.5; }
+    .bucket-filter-list { display: flex; flex-wrap: wrap; gap: 12px 18px; margin-top: 6px; padding: 14px 16px; border: 1px solid #334763; background: #0d1525; border-radius: 12px; }
+    .bucket-chip { display: inline-flex; align-items: center; gap: 8px; color: #e7edf7; font-size: 14px; font-weight: 600; }
+    .bucket-chip input { min-width: auto; margin: 0; }
     label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #b9c5db; }
     input { min-width: 180px; padding: 10px 12px; border-radius: 10px; border: 1px solid #334763; background: #0d1525; color: #fff; }
     button { padding: 11px 16px; border: 0; border-radius: 10px; background: #1f6feb; color: #fff; cursor: pointer; }
@@ -28,10 +31,10 @@
     th { color: #8fa6cc; font-weight: 600; }
     th .sub-note { display: block; margin-top: 4px; font-size: 11px; line-height: 1.4; color: #93a2bd; font-weight: 400; }
     .style-tag { font-weight: 700; }
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    .summary-card { background: #0d1525; border: 1px solid #24324d; border-radius: 12px; padding: 12px; }
-    .summary-card .k { color: #8fa6cc; font-size: 12px; margin-bottom: 6px; }
-    .summary-card .v { font-size: 18px; font-weight: 700; }
+    .summary-strip { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; border: 1px solid #334763; background: #0d1525; border-radius: 12px; }
+    .summary-item { min-width: 120px; }
+    .summary-item .k { color: #8fa6cc; font-size: 12px; margin-bottom: 6px; }
+    .summary-item .v { font-size: 18px; font-weight: 700; color: #e7edf7; }
     .assessment-box { margin-top: 12px; padding: 12px 14px; border: 1px solid #24324d; border-radius: 12px; background: #0d1525; }
     .assessment-grade { font-size: 15px; font-weight: 700; color: #e7edf7; }
     .assessment-reason { margin-top: 6px; font-size: 13px; color: #93a2bd; }
@@ -54,6 +57,10 @@
       .controls label, .controls button { width: 100%; }
       .controls input { min-width: 0; width: 100%; box-sizing: border-box; }
       .style-picker { grid-template-columns: 1fr; }
+      .summary-strip { gap: 8px 12px; }
+      .summary-item { min-width: 100px; }
+      .bucket-filter-list { gap: 10px 12px; }
+      .bucket-chip { font-size: 13px; }
       .result-table-wrap { display: none; }
       .card-grid { display: grid; }
     }
@@ -95,39 +102,18 @@
           </label>
         </div>
         <div class="filter-group-title">時間範圍</div>
-        <div class="style-picker" id="bucket-filters">
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="本週" checked> <strong>本週</strong></span>
-            <p>顯示本週有效結算日的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="下週" checked> <strong>下週</strong></span>
-            <p>顯示下一個週結算 bucket 的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="2週後" checked> <strong>2週後</strong></span>
-            <p>顯示距今第 2 個週結算 bucket 的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="3週後" checked> <strong>3週後</strong></span>
-            <p>顯示距今第 3 個週結算 bucket 的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="4週後" checked> <strong>4週後</strong></span>
-            <p>顯示距今第 4 個週結算 bucket 的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="2個月"> <strong>2個月</strong></span>
-            <p>顯示標準 monthly 2 個月 bucket 的 covered call 建議。</p>
-          </label>
-          <label class="style-option">
-            <span><input type="checkbox" name="bucket" value="3個月"> <strong>3個月</strong></span>
-            <p>顯示標準 monthly 3 個月 bucket 的 covered call 建議。</p>
-          </label>
+        <div class="bucket-filter-list" id="bucket-filters">
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="本週" checked> 本週</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="下週" checked> 下週</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="2週後" checked> 2週後</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="3週後" checked> 3週後</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="4週後" checked> 4週後</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="2個月"> 2個月</label>
+          <label class="bucket-chip"><input type="checkbox" name="bucket" value="3個月"> 3個月</label>
         </div>
         <div class="summary-grid" id="summary"></div>
       </div>
-      <div class="muted" id="status">預設以 100 股 1 單位 covered call 計算，使用 本週 / 下週 / 2週後 / 3週後 / 4週後 / 2個月 / 3個月 bucket。</div>
+      <div class="muted" id="status">以 100 股為 1 單位 covered call 計算。</div>
       <div class="assessment-box" id="covered-call-assessment-box" hidden>
         <div class="assessment-grade" id="covered-call-assessment-grade">Covered Call 評估：—</div>
         <div class="assessment-reason" id="covered-call-assessment-reason">—</div>
@@ -161,7 +147,7 @@
       <div class="card-grid" id="result-cards"></div>
     </div>
 
-    <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1.1</div>
+    <div class="footer-version">Sell Covered Call 計算機 by我是黑叔 版本v1.2</div>
   </div>
 
   <script>
@@ -180,10 +166,10 @@
         ["股票代號", report.ticker],
         ["現價", `$${report.spot.toFixed(2)}`],
         ["持股成本", `$${report.cost_basis.toFixed(2)}`],
-        ["更新時間", report.updated_at],
       ];
+      summaryEl.className = "summary-strip";
       summaryEl.innerHTML = cards.map(([k, v]) => `
-        <div class="summary-card">
+        <div class="summary-item">
           <div class="k">${k}</div>
           <div class="v">${v}</div>
         </div>
