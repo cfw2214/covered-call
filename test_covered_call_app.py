@@ -34,6 +34,7 @@ class CoveredCallAppTests(unittest.TestCase):
         self.assertIn("若被履約總獲利（含權利金）", body)
         self.assertIn("履約價-成本價＋權利金＝總獲利", body)
         self.assertIn("OI未平倉量", body)
+        self.assertIn("成交難易度", body)
         self.assertIn("保守型", body)
         self.assertIn("Call Wall", body)
         self.assertIn("中庸型", body)
@@ -79,6 +80,7 @@ class CoveredCallAppTests(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertIn("card-grid", body)
         self.assertIn("card-row", body)
+        self.assertIn("成交難易度", body)
 
     def test_index_page_uses_compact_bucket_filter_group(self) -> None:
         response = self.client.get("/")

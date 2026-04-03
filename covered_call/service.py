@@ -263,6 +263,52 @@ def calculate_contract_metrics(spot: float, cost_basis: float, dte: int, strike:
     }
 
 
+def classify_tradeability(bid: float, ask: float, open_interest: float, volume: float) -> dict:
+    bid = float(bid or 0.0)
+    ask = float(ask or 0.0)
+    open_interest = float(open_interest or 0.0)
+    volume = float(volume or 0.0)
+
+    if bid <= 0 or ask <= 0:
+        return {
+            "grade": "🔴 困難",
+            "reason": "買賣盤少、流動性差，掛中間價不易成交",
+        }
+
+    mid = (bid + ask) / 2.0
+    spread = ask - bid
+    spread_pct = (spread / mid) * 100 if mid > 0 else float("inf")
+
+    if open_interest < 50 or volume < 5 or spread_pct > 15:
+        return {
+            "grade": "🔴 困難",
+            "reason": "買賣盤少、流動性差，掛中間價不易成交",
+        }
+
+    if mid < 1.0 and spread > 0.10:
+        return {
+            "grade": "🟡 尚可",
+            "reason": "價差中等，但流動性仍可接受",
+        }
+
+    if spread_pct <= 5 and open_interest >= 500 and volume >= 50:
+        return {
+            "grade": "🟢 容易",
+            "reason": "價差小、OI高、成交量足",
+        }
+
+    if spread_pct <= 10 and open_interest >= 100 and volume >= 10:
+        return {
+            "grade": "🟡 尚可",
+            "reason": "價差中等，但流動性仍可接受",
+        }
+
+    return {
+        "grade": "🔴 困難",
+        "reason": "買賣盤少、流動性差，掛中間價不易成交",
+    }
+
+
 def build_call_wall_style_summary(
     call_wall: float,
     spot: float,
@@ -271,6 +317,7 @@ def build_call_wall_style_summary(
     premium: float,
     delta: float,
     open_interest: float = 0.0,
+    volume: float = 0.0,
     spread_pct: Optional[float] = None,
 ) -> dict:
     metrics = calculate_contract_metrics(
@@ -279,6 +326,12 @@ def build_call_wall_style_summary(
         dte=dte,
         strike=float(call_wall),
         premium=float(premium),
+    )
+    tradeability = classify_tradeability(
+        bid=max(float(premium) - 0.01, 0.0),
+        ask=float(premium) + 0.01,
+        open_interest=float(open_interest or 0.0),
+        volume=float(volume or 0.0),
     )
     return {
         "style": "Call Wall",
@@ -292,6 +345,8 @@ def build_call_wall_style_summary(
         "max_profit": metrics["max_profit"],
         "open_interest": int(round(float(open_interest or 0.0))),
         "spread_pct": spread_pct,
+        "tradeability_grade": tradeability["grade"],
+        "tradeability_reason": tradeability["reason"],
     }
 
 
@@ -381,6 +436,7 @@ def _build_option_rows(chain, spot: float, dte: int) -> list[dict]:
                 "ask": float(row.get("ask") or 0.0),
                 "lastPrice": float(row.get("lastPrice") or 0.0),
                 "openInterest": float(row.get("openInterest") or 0.0),
+                "volume": float(row.get("volume") or 0.0),
                 "impliedVolatility": iv,
                 "delta": delta,
             }
@@ -426,6 +482,12 @@ def _build_candidate_summary(style: str, candidate: Optional[dict], spot: float,
         mid = (bid + ask) / 2.0
         if mid > 0:
             spread_pct = round(((ask - bid) / mid) * 100, 2)
+    tradeability = classify_tradeability(
+        bid=bid,
+        ask=ask,
+        open_interest=float(candidate.get("openInterest") or 0.0),
+        volume=float(candidate.get("volume") or 0.0),
+    )
 
     return {
         "style": style,
@@ -439,6 +501,8 @@ def _build_candidate_summary(style: str, candidate: Optional[dict], spot: float,
         "max_profit": metrics["max_profit"],
         "open_interest": int(round(float(candidate.get("openInterest") or 0.0))),
         "spread_pct": spread_pct,
+        "tradeability_grade": tradeability["grade"],
+        "tradeability_reason": tradeability["reason"],
     }
 
 
@@ -541,6 +605,7 @@ def fetch_covered_call_report(ticker: str, cost_basis: Optional[float] = None) -
                     premium=option_mid(call_wall_candidate),
                     delta=float(call_wall_candidate.get("delta") or 0.0),
                     open_interest=float(call_wall_candidate.get("openInterest") or 0.0),
+                    volume=float(call_wall_candidate.get("volume") or 0.0),
                     spread_pct=wall_spread_pct,
                 ),
             )

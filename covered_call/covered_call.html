@@ -139,6 +139,7 @@
               <th>權利金收入</th>
               <th>年化報酬</th>
               <th>若被履約總獲利（含權利金）<span class="sub-note">履約價-成本價＋權利金＝總獲利</span></th>
+              <th>成交難易度</th>
             </tr>
           </thead>
           <tbody id="result-body"></tbody>
@@ -183,7 +184,7 @@
             <td>${bucket.label}</td>
             <td class="style-tag">${style.style}</td>
             <td>${bucket.target_expiry || "—"}</td>
-            <td colspan="7">${style.message}</td>
+            <td colspan="8">${style.message}</td>
           </tr>
         `;
       }
@@ -200,6 +201,7 @@
           <td>$${style.premium_income.toFixed(2)}</td>
           <td>${style.annualized_return.toFixed(2)}%</td>
           <td>$${style.max_profit.toFixed(2)}</td>
+          <td>${style.tradeability_grade}<div class="muted" style="font-size:12px;margin-top:4px;">${style.tradeability_reason}</div></td>
         </tr>
       `;
     }
@@ -234,6 +236,7 @@
           <div class="card-row"><div class="card-key">權利金收入</div><div class="card-value">$${style.premium_income.toFixed(2)}</div></div>
           <div class="card-row"><div class="card-key">年化報酬</div><div class="card-value">${style.annualized_return.toFixed(2)}%</div></div>
           <div class="card-row"><div class="card-key">若被履約總獲利（含權利金）</div><div class="card-value">$${style.max_profit.toFixed(2)}</div></div>
+          <div class="card-row"><div class="card-key">成交難易度</div><div class="card-value">${style.tradeability_grade}<div class="muted" style="font-size:12px;margin-top:4px;">${style.tradeability_reason}</div></div></div>
         </article>
       `;
     }

@@ -8,6 +8,26 @@ from covered_call import service
 
 
 class CoveredCallServiceTests(unittest.TestCase):
+    def test_classify_tradeability_returns_easy_for_tight_liquid_contract(self) -> None:
+        result = service.classify_tradeability(
+            bid=1.00,
+            ask=1.04,
+            open_interest=1200,
+            volume=120,
+        )
+        self.assertEqual(result["grade"], "🟢 容易")
+        self.assertIn("價差小", result["reason"])
+
+    def test_classify_tradeability_returns_difficult_for_wide_illiquid_contract(self) -> None:
+        result = service.classify_tradeability(
+            bid=0.10,
+            ask=0.30,
+            open_interest=20,
+            volume=2,
+        )
+        self.assertEqual(result["grade"], "🔴 困難")
+        self.assertIn("流動性差", result["reason"])
+
     def test_pick_current_weekly_expiry_returns_same_week_expiry(self) -> None:
         expiry = service.pick_current_weekly_expiry(
             [
@@ -126,12 +146,15 @@ class CoveredCallServiceTests(unittest.TestCase):
             premium=2.0,
             delta=0.3,
             open_interest=1234,
+            volume=88,
         )
         self.assertEqual(summary["style"], "Call Wall")
         self.assertTrue(summary["available"])
         self.assertEqual(summary["strike"], 270.0)
         self.assertEqual(summary["premium_income"], 200.0)
         self.assertEqual(summary["open_interest"], 1234)
+        self.assertIn("tradeability_grade", summary)
+        self.assertIn("tradeability_reason", summary)
 
 
 if __name__ == "__main__":
